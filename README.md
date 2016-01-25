@@ -8,11 +8,16 @@ App for creating nice github reports from your Flowdock's team inbox
 - bundler
 - flowdock access
 
+NOTE: consider using rvm or rbenv (it's not a requirment)
+
 # Installation
 
 - install github integration on specific flow
 - get Flowdock personal API token from
   [here](https://flowdock.com/account/tokens)
+- get Github OAuth token (required for Zenhub only)
+  https://github.com/settings/tokens
+- get ZenHub API token https://dashboard.zenhub.io/#/settings
 - get your Flowdock's flow and organization name
 - install required gems:
 

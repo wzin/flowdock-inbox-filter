@@ -60,7 +60,7 @@ puts "Last msg: #{flow_last_msg_id}"
 if options[:number] >= 100
   num_requests = (options[:number] / 100.0).ceil
   flow_messages = []
-  until_id = (flow_last_msg_id - (num_requests * options[:number]) + 100)
+  until_id = (flow_last_msg_id - (num_requests * 100)) + 100
   puts "More than 100 messages specified - using pagination with #{num_requests} requests"
   num_requests.times do
     flow_url = "/flows/#{options[:organization]}/#{options[:flow]}/messages?app=influx&limit=100&search=#{options[:user]}&until_id=#{until_id}&event=activity"
@@ -87,31 +87,75 @@ if options[:verbose]
   puts JSON.pretty_generate(flow_messages)
 end
 
+# this is final structure
+days_events = {}
+
 flow_messages.each do |message|
+  # rewrite list of messages and index them by date
   begin
     author = message['author']['name']
   rescue
     author = ''
   end
+    # iterate over messages that have proper author supplied in args
+    # create following structure:
+    # for every date have a list of tickets with list of events for every ticket
+    #
     if author == options[:user]
       begin
-        id = message['id']
-        body = message['body'].gsub(/<\/?[^>]*>/, "")
-        source = message['thread']['source']['application']['name']
-        title = message['thread']['title']
-        external_url = message['thread']['external_url']
         created_at = Date.parse( message['created_at']).to_s
-        puts "date: #{created_at}".green
-        puts "   id: #{id}".blue
-        puts "   source: #{source}".blue
-        puts "   title: #{title}".blue
-        puts "   url: #{external_url}".blue
-        if !body.empty?
-          puts "   message:      #{body}"
+        title = message['thread']['title']
+
+        id = message['id']
+
+        if !days_events.has_key? created_at
+          # add entry for the day if doesnt exist
+          days_events[created_at] = {}
         end
-        puts " "
-      rescue
+
+        if !days_events[created_at].has_key? title
+          days_events[created_at][title] = {}
+        end
+
+        days_events[created_at][title][id] = {}
+
+        days_events[created_at][title][id]['title_message'] = message['title'] || ''
+        days_events[created_at][title][id]['url'] = message['thread']['external_url']
+        days_events[created_at][title][id]['source'] = message['thread']['source']['application']['name']
+        days_events[created_at][title][id]['body'] = message['body'].gsub(/<\/?[^>]*>/, "")
+
+      rescue Exception => e
         puts "Couldnt get all arguments from message"
+        raise e
       end
     end
+end
+
+days_events.each_pair do |day, events|
+  puts ""
+  puts "BEGINNING OF DATE: #{day}".green
+  events.each_pair do |event_title, event_events|
+    puts "  -> Activity name: #{event_title}".colorize(:color => :light_blue).underline
+    event_events.each_pair do |event_id, event_data|
+      puts "    * Activity id: #{event_id}".to_s.colorize(:color => :blue)
+      puts "     * source : #{event_data['source']}"
+      puts "     * url    : #{event_data['url']}"
+      if !event_data['body'].empty?
+        puts "     * message: #{event_data['body'][0..250].colorize(:color => :white)} [...]"
+      end
+      if !event_data['title_message'].empty?
+        puts "     * details: #{event_data['title_message'].gsub(/<\/?[^>]*>/, "")}"
+      end
+    end
+  end
+  puts "END OF DATE: #{day}".green
+end
+
+def extract_repo_fromo_fields(fields)
+  # accept list of Hashes
+  fields.each do |field|
+    if field['label'] == 'repository'
+      return field['value'].gsub(/<\/?[^>]*>/, "")
+    end
+  end
 end
