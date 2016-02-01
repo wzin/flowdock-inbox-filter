@@ -30,6 +30,9 @@ OptionParser.new do |opts|
   opts.on("-n", "--number-of-messages NUMMESSAGES", Integer, "Number of messages to retrieve - default = 100") do |n|
     options[:number] = n
   end
+  opts.on("-t", "--timezone-offset TIMEOFFSET", String, "Offset from UTC time to add/subtract when showing time") do |t|
+    options[:timeoffset] = t
+  end
   opts.on("-r", "--reverse-sort", "Reverse sort of messages (from descending to ascending)") do |s|
     options[:sort] = s
   end
@@ -119,7 +122,23 @@ flow_messages.each do |message|
 
         days_events[created_at][title][id] = {}
 
+        if options[:timeoffset]
+          time_details = DateTime.parse(message['created_at']).to_time
+          time_offset_seconds = (60 * 60 *  options[:timeoffset].to_i)
+          time_details = time_details + time_offset_seconds
+          timezone = "UTC #{options[:timeoffset].to_s}"
+        else
+          time_details = DateTime.parse(message['created_at']).to_time
+          puts "Using UTC timezone"
+          timezone = 'UTC'
+        end
+
+        hour = time_details.strftime("%H")
+        minute = time_details.strftime("%M")
+        second = time_details.strftime("%S")
+
         days_events[created_at][title][id]['title_message'] = message['title'] || ''
+        days_events[created_at][title][id]['time_of_day'] = "#{hour}:#{minute}:#{second} (#{timezone} timezone)"
         days_events[created_at][title][id]['url'] = message['thread']['external_url']
         days_events[created_at][title][id]['source'] = message['thread']['source']['application']['name']
         days_events[created_at][title][id]['body'] = message['body'].gsub(/<\/?[^>]*>/, "")
@@ -139,6 +158,7 @@ days_events.each_pair do |day, events|
     event_events.each_pair do |event_id, event_data|
       puts "    * Activity id: #{event_id}".to_s.colorize(:color => :blue)
       puts "     * source : #{event_data['source']}"
+      puts "     * time   : #{event_data['time_of_day']}"
       puts "     * url    : #{event_data['url']}"
       if !event_data['body'].empty?
         puts "     * message: #{event_data['body'][0..250].colorize(:color => :white)} [...]"
