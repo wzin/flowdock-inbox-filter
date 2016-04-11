@@ -68,7 +68,7 @@ if options[:number] >= 100
   num_requests.times do
     flow_url = "/flows/#{options[:organization]}/#{options[:flow]}/messages?app=influx&limit=100&search=#{options[:user]}&until_id=#{until_id}&event=activity"
     if options[:verbose]
-      puts "Making request since ID #{until_id} on URL #{flow_url}"
+      puts "Making request until ID #{until_id} on URL #{flow_url}"
     end
     flow_messages = flow_messages + api_token_client.get(flow_url)
     until_id += 100
